@@ -1,0 +1,196 @@
+-- Carregar OrionLib
+local OrionLib = loadstring(game:HttpGet("https://raw.githubusercontent.com/shlexware/Orion/main/source"))()
+
+-- Janela Principal
+local Window = OrionLib:MakeWindow({Name = "ESP Pro v1", HidePremium = false, SaveConfig = false, IntroEnabled = false})
+
+-- Serviços
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+
+-- Variáveis
+local espBoxes = {}
+local espAtivado = false
+local mostrarNomes = false
+local mostrarDistancia = false
+local corESP = Color3.fromRGB(0, 170, 255)
+local distanciaMaxima = 1000
+
+-- Criar ESP por jogador
+local function criarESP(player)
+    local char = player.Character
+    if not char or not char:FindFirstChild("HumanoidRootPart") then return end
+    if not LocalPlayer.Character or not LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then return end
+
+    local dist = (char.HumanoidRootPart.Position - LocalPlayer.Character.HumanoidRootPart.Position).Magnitude
+    if dist > distanciaMaxima then return end
+
+    -- Caixa
+    local box = Instance.new("BoxHandleAdornment")
+    box.Size = Vector3.new(4, 6, 4)
+    box.Adornee = char:FindFirstChild("HumanoidRootPart")
+    box.AlwaysOnTop = true
+    box.ZIndex = 0
+    box.Transparency = 0.5
+    box.Color3 = corESP
+    box.Name = "ESP_Box"
+    box.Parent = char
+    espBoxes[player] = box
+
+    -- Nome
+    if mostrarNomes and char:FindFirstChild("Head") then
+        local nomeGui = Instance.new("BillboardGui")
+        nomeGui.Name = "ESP_Nome"
+        nomeGui.Size = UDim2.new(0, 100, 0, 20)
+        nomeGui.StudsOffset = Vector3.new(0, 2.5, 0)
+        nomeGui.Adornee = char.Head
+        nomeGui.AlwaysOnTop = true
+        nomeGui.Parent = char
+
+        local label = Instance.new("TextLabel")
+        label.Size = UDim2.new(1, 0, 1, 0)
+        label.BackgroundTransparency = 1
+        label.Text = player.Name
+        label.TextColor3 = corESP
+        label.TextScaled = true
+        label.TextStrokeTransparency = 0
+        label.Parent = nomeGui
+    end
+
+    -- Distância
+    if mostrarDistancia and char:FindFirstChild("Head") then
+        local distGui = Instance.new("BillboardGui")
+        distGui.Name = "ESP_Distancia"
+        distGui.Size = UDim2.new(0, 100, 0, 20)
+        distGui.StudsOffset = Vector3.new(0, 4, 0)
+        distGui.Adornee = char.Head
+        distGui.AlwaysOnTop = true
+        distGui.Parent = char
+
+        local label = Instance.new("TextLabel")
+        label.Size = UDim2.new(1, 0, 1, 0)
+        label.BackgroundTransparency = 1
+        label.Text = math.floor(dist) .. " studs"
+        label.TextColor3 = corESP
+        label.TextScaled = true
+        label.TextStrokeTransparency = 0
+        label.Parent = distGui
+    end
+end
+
+-- Remover ESP
+local function removerESP()
+    for _, player in ipairs(Players:GetPlayers()) do
+        local char = player.Character
+        if char then
+            for _, item in ipairs(char:GetChildren()) do
+                if item:IsA("BoxHandleAdornment") and item.Name == "ESP_Box" then
+                    item:Destroy()
+                end
+                if item:IsA("BillboardGui") and (item.Name == "ESP_Nome" or item.Name == "ESP_Distancia") then
+                    item:Destroy()
+                end
+            end
+        end
+    end
+    espBoxes = {}
+end
+
+-- Atualizar ESPs
+local function atualizarESP()
+    removerESP()
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer then
+            criarESP(player)
+        end
+    end
+end
+
+-- Evento para novos jogadores
+Players.PlayerAdded:Connect(function(player)
+    player.CharacterAdded:Connect(function()
+        wait(1)
+        if espAtivado then
+            criarESP(player)
+        end
+    end)
+end)
+
+-- Aba de Controle
+local Tab = Window:MakeTab({
+    Name = "ESP",
+    Icon = "rbxassetid://4483345998",
+    PremiumOnly = false
+})
+
+Tab:AddToggle({
+    Name = "Ativar ESP",
+    Default = false,
+    Callback = function(Value)
+        espAtivado = Value
+        if Value then
+            atualizarESP()
+        else
+            removerESP()
+        end
+    end
+})
+
+Tab:AddColorpicker({
+    Name = "Cor do ESP",
+    Default = corESP,
+    Callback = function(Value)
+        corESP = Value
+        if espAtivado then
+            atualizarESP()
+        end
+    end
+})
+
+Tab:AddToggle({
+    Name = "Mostrar Nome",
+    Default = false,
+    Callback = function(Value)
+        mostrarNomes = Value
+        if espAtivado then
+            atualizarESP()
+        end
+    end
+})
+
+Tab:AddToggle({
+    Name = "Mostrar Distância",
+    Default = false,
+    Callback = function(Value)
+        mostrarDistancia = Value
+        if espAtivado then
+            atualizarESP()
+        end
+    end
+})
+
+Tab:AddSlider({
+    Name = "Distância Máxima",
+    Min = 50,
+    Max = 1000,
+    Default = 1000,
+    Increment = 50,
+    Callback = function(Value)
+        distanciaMaxima = Value
+        if espAtivado then
+            atualizarESP()
+        end
+    end
+})
+
+Tab:AddButton({
+    Name = "Atualizar Manualmente",
+    Callback = function()
+        if espAtivado then
+            atualizarESP()
+        end
+    end
+})
+
+-- Iniciar GUI
+OrionLib:Init()
